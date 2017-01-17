@@ -3,15 +3,16 @@ import os
 import re
 from bitstring import BitArray, BitStream, pack, Bits
 
-infile = '2017-01-05 04-05-17_out.h265'
-outfile = 'processed.h265'
-maxcll = 1000
-maxfall = 300
-primaries = 9
-trc = 16
-matrix = 9
-chroma_bit = 2
-video_fmt = 5
+### PUT YOUR SETTINGS HERE ###
+infile = '2017-01-05 04-05-17_out.h265' #path to your infile here (should be raw .h265 stream)
+outfile = 'processed.h265'              #path to your outfile here
+maxcll = 1000                           #MaxCLL parameter to be written into SEI
+maxfall = 300                           #MaxFALL parameter to be written into SEI
+primaries = 9                           #Primaries to be put into VUI section. Default = 9 (bt2020)
+trc = 16                                #Transfer function describing curve. Default = 16 (SMPTE ST2084 curve)
+matrix = 9                              #Color matrix. Default = 9 (bt2020nc)
+chroma_bit = 2                          #Chroma bit location = 2 (as required by UHD BD specs)
+video_fmt = 5                           #Video format (COMPONENT,PAL, NTSC, e.t.c.) Default = 5 (Unspecified)
 
 class profile_tier_level(object):
     def __init__(self, t, maxNumSubLayersMinus1):
@@ -240,10 +241,6 @@ def main():
 
     
     F = open(infile,'r+b')
-#    F = open('kaz_h265.h265','r+b')
-#    F = open ('top_pq.h265','r+b')
-#    F =  open ('C:/Users/Anatoly/Downloads/media-autobuild_suite-master/local64/bin-video/out_cpu_nhdr_nv.h265','r+b')
-#    F = open('C:/Users/Anatoly/Videos/2017-01-05 04-05-17_temp/2017-01-05 04-05-17_out.h265','r+b')
 
     print ('Parsing the infile:')
     print ('')
@@ -497,13 +494,10 @@ def main():
     if vui_parameters_present_flag :
         vp.show()
     print ('sps_extension_present_flag',sps_extension_present_flag)
-    
-
 
 # New BS write Block
 
     new_bs = BitStream()
-#    new_bs += pack('uint:1,2*uint:6,uint:3',forbidden_zero_bit, nal_unit_type, nuh_layer_id,nuh_temporal_id_plus1)
     new_bs += pack('uint:4,uint:3,uint:1',sps_video_parameter_set_id,sps_max_sub_layers_minus1,sps_temporal_id_nesting_flag)
     new_bs += pack ('uint:2,uint:1,uint:5',ptl.general_profile_space, ptl.general_tier_flag,ptl.general_profile_idc)
     for i in range (32) :
@@ -645,10 +639,6 @@ def main():
            new_bs += pack ('ue',vp.log2_max_mv_length_horizontal)
            new_bs += pack ('ue',vp.log2_max_mv_length_vertical)
 
-
-
-# *** CONTINUE!!!
-
     new_bs += pack ('uint:1',sps_extension_present_flag)
     if sps_extension_present_flag :
         new_bs += pack ('uint:1',sps_range_extension_flag)
@@ -667,21 +657,10 @@ def main():
 #        self.sub_layer_level_present_flag.append(t.read('uint:1'))
     
     pre_new_bs = pack ('uint:1,2*uint:6,uint:3', forbidden_zero_bit,nal_unit_type,nuh_layer_id,nuh_temporal_id_plus1)
-
-
     new_bs.replace ('0x0000','0x000003',bytealigned=True)
-
-    
-
-    
     new_bs = pre_new_bs + new_bs
-    
-    
-#    new_nal = ('0x000001') + new_nal
-
     nal_t_rep = nal_t[24:]
     repl = s.replace (nal_t_rep,new_bs, bytealigned=True)
-
 
     if not sei_pref_nals :
         s.prepend (new_sei_string)
@@ -699,7 +678,6 @@ def main():
     print ('Done!')
     print ('')
     print ('File ',outfile,' created. SEI and VUI data added.')
-
 
 if __name__ == "__main__":
     main()
