@@ -13,6 +13,8 @@ trc = 16                                #Transfer function describing curve. Def
 matrix = 9                              #Color matrix. Default = 9 (bt2020nc)
 chroma_bit = 2                          #Chroma bit location = 2 (as required by UHD BD specs)
 video_fmt = 5                           #Video format (COMPONENT,PAL, NTSC, e.t.c.) Default = 5 (Unspecified)
+chunk = 67108864
+progr = 0
 
 class profile_tier_level(object):
     def __init__(self, t, maxNumSubLayersMinus1):
@@ -57,38 +59,7 @@ class profile_tier_level(object):
         print ('\t','general_level_idc', self.general_level_idc)
         print ('\t','sub_layer_profile_present_flag', self.sub_layer_profile_present_flag)
         print ('\t','sub_layer_level_present_flag', self.sub_layer_level_present_flag)
-"""
-class st_ref_pic_set (object):
-    def __init__ (self,t,i,num_short_term_ref_pic_sets):
-        
-        if i != 0 :
-            self.inter_ref_pic_set_prediction_flag = t.read ('uint:1')
-        
-        if not hasattr (self,'inter_ref_pic_set_prediction_flag'):
-            
-            
-            if i == num_short_term_ref_pic_sets :
-                self.delta_idx_minus1 = t.read ('ue')
-            if not hasattr (self,'delta_idx_minus1'):
-                self.delta_idx_minus1 = 0
-            self.delta_rps_sign = t.read ('uint:1')
-            self.abs_delta_rps_minus1 = t.read ('ue')
-            for j in range (NumDeltaPoc) :
-                self.used_by_curr_pic_flag[j] = t.read ('uint:1')
-            if self.used_by_curr_pic_flag[j] :
-                self.use_delta_flag[j] = t.read ('uint:1')
-        
-               
-        else :              
-            
-            self.num_negative_pics = t.read ('ue')
-            self.num_positive_pics = t.read ('ue')
-            self.delta_poc_s0_minus1 = [t.read ('ue') for _ in range (self.num_negative_pics)]
-            self.used_by_curr_pic_s0_flag = [ t.read ('uint:1') for _ in range (self.num_negative_pics)]
-            self.delta_poc_s1_minus1 = [t.read ('ue') for _ in range(self.num_positive_pics)]
-            self.used_by_curr_pic_s1_flag = [t.read ('uint:1') for _ in range(self.num_positive_pics)]
-            
-"""                        
+                     
 class rbsp_trailing_bits(object):
     def __init__ (self,t,NumBytesInRbsp):
         self.rbsp_stop_one_bit = t.read ('uint:1')
@@ -247,7 +218,7 @@ def main():
     print ('==========================')
     print ('')
     print ('Prepending SEI data')
-    s = BitStream(F.read(67108864))
+    s = BitStream(F.read(chunk))
     
     nals = list(s.findall('0x000001', bytealigned=True))
     sps_nals = list(s.findall('0x00000142', bytealigned=True))
@@ -259,7 +230,6 @@ def main():
     if sei_pref_nals :
         sei_pref_nal_size = ( size[nals.index(sei_pref_nals[0])])
 
-#    print (nals.index(sps_nals))
     sei_string = BitStream('0x000000014e01900403e8000080')
     sei_string_short = sei_string[32:]
     sei_string.pos = sei_string.pos + 32
@@ -305,41 +275,13 @@ def main():
     nal_unit_type = t.read('uint:6')
     nuh_layer_id = t.read('uint:6')
     nuh_temporal_id_plus1 = t.read('uint:3')
-
-
     nal_t = t[:]
-
-
-
 
 # 7.3.1.1
     # Convert NAL data (Annex B format) to RBSP data
-    """
-    NumBytesInRbsp = 0
-    rbsp_byte = BitStream()
-    print ('t.pos',t.pos)
-   
-    NumBytesInNalUnit = int(sps_size/8)-13
-    print (NumBytesInNalUnit)
 
-    for i in range (NumBytesInNalUnit):
-        print (i, rbsp_byte)
-        if (i+2) < NumBytesInNalUnit and t.peek('bits:24') == '0x000003':
-            rbsp_byte.append(t.read('bits:8'))
-            rbsp_byte.append(t.read('bits:8'))
-           # emulation_prevention_three_byte
-            t.read('bits:8')
-        else:
-            rbsp_byte.append(t.read('bits:8'))
-
-    NumBytesInRbsp = len(rbsp_byte)
-    print ('rbsp_byte',rbsp_byte)
-    t = rbsp_byte
-    """
     t.tobytes()
     t.replace ('0x000003','0x0000')
-    
-    
     
     
 # SPS parse block
@@ -652,7 +594,7 @@ def main():
 
 #    self.sub_layer_profile_present_flag = []
 #    self.sub_layer_level_present_flag = []
- #   for i in range(maxNumSubLayersMinus1):
+#    for i in range(maxNumSubLayersMinus1):
 #        self.sub_layer_profile_present_flag.append(t.read('uint:1'))
 #        self.sub_layer_level_present_flag.append(t.read('uint:1'))
     
@@ -667,14 +609,18 @@ def main():
 
     o = open (outfile,'wb')
     s.tofile(o)
-
+    progr = chunk
     while True:
-        s = F.read(67108864)
+        s = F.read(chunk)
         o.write(s)
+        if progr < os.path.getsize(infile):
+            print ('Progress ',int(round((progr/os.path.getsize(infile))*100)),'%')
+        progr = progr + chunk
         if not s:
             break
     o.close()
     F.close()
+    print ('Progress: 100 %')
     print ('=====================')
     print ('Done!')
     print ('')
