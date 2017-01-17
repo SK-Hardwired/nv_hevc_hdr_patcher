@@ -247,7 +247,7 @@ def main():
     print ('==========================')
     print ('')
     print ('Prepending SEI data')
-    s = BitStream(F.read(100000))
+    s = BitStream(F.read(67108864))
     
     nals = list(s.findall('0x000001', bytealigned=True))
     sps_nals = list(s.findall('0x00000142', bytealigned=True))
@@ -669,11 +669,12 @@ def main():
     s.tofile(o)
 
     while True:
-        s = F.read(100000)
+        s = F.read(67108864)
         o.write(s)
         if not s:
             break
     o.close()
+    F.close()
     print ('=====================')
     print ('Done!')
     print ('')
