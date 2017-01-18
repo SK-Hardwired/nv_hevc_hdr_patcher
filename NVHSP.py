@@ -5,22 +5,38 @@ from bitstring import BitArray, BitStream, pack, Bits
 
 import argparse
 
+### CMD arguments parsing
 
 parser = argparse.ArgumentParser(description='Creates new HEVC raw stream with HDR10 metadata.',)
-parser.add_argument('infile',help='First file or filepath should be the source',nargs='?')
-parser.add_argument('outfile',help='Second file or filepath should be the destination file',nargs='?')
+parser.add_argument('infile',help='First file or filepath should be the source')
+parser.add_argument('outfile',help='Second file or filepath should be the destination file')
+parser.add_argument('-colorprim',help='Color primaries. Default: bt2020',choices=['undef', 'bt709', 'bt470m', 'bt470bg', 'smpte170m','smpte240m', 'film', 'bt2020','smpte-st-428'], default='bt2020')
+parser.add_argument('-transfer',help='Transfer characteristics. Default: smpte-st-2084',choices=['undef','bt709', 'bt470m', 'bt470bg', 'smpte170m','smpte240m', 'linear', 'log100', 'log316', 'iec61966-2-4', 'bt1361e', 'iec61966-2-1','bt2020-10','bt2020-12', 'smpte-st-2084', 'smpte-st-428', 'arib-std-b67'],default='smpte-st-2084')
+parser.add_argument('-colormatrix',help='Color matrix. Default: bt2020nc',choices=['undef','bt709','fcc','bt470bg','smpte170m','smpte240m','GBR','YCgCo','bt2020nc','bt2020c'],default='bt2020nc')
+parser.add_argument('-chromaloc',help='Chroma bit sample location. Default: 2',choices= range(6),type=int,default=2)
+parser.add_argument('-maxcll',help='MaxCLL in nits. Default: 1000',type=int,default=1000)
+parser.add_argument('-maxfall',help='MaxFall in nits. Default: 300',type=int,default=300)
+parser.add_argument('-videoformat',help='Optional: specify the videoformat. Default: unspecified',choices=['component','pal','ntsc','secam','mac','unspec'],default='unspec')
+parser.add_argument('-full_range',help='Full or TV range. Default: tv',choices=['tv','full'],default='tv')                    
 args = parser.parse_args()
 
-### PUT YOUR SETTINGS HERE ###
-infile = 'brat2_h265.h265'              # if not given in CMD! Path to your infile here (should be raw .h265 stream)
-outfile = 'processed.h265'              # if not given in CMD! Path to your outfile here
-maxcll = 1000                           #MaxCLL parameter to be written into SEI
-maxfall = 300                           #MaxFALL parameter to be written into SEI
-primaries = 9                           #Primaries to be put into VUI section. Default = 9 (bt2020)
-trc = 16                                #Transfer function describing curve. Default = 16 (SMPTE ST2084 curve)
-matrix = 9                              #Color matrix. Default = 9 (bt2020nc)
-chroma_bit = 2                          #Chroma bit location = 2 (as required by UHD BD specs)
-video_fmt = 5                           #Video format (COMPONENT,PAL, NTSC, e.t.c.) Default = 5 (Unspecified)
+
+# Create the list, from where we will take corresponding value to input param
+prim_list = ['reserved','bt709','undef','reserved', 'bt470m', 'bt470bg', 'smpte170m','smpte240m', 'film', 'bt2020','smpte-st-428']
+trc_list = ['reserved','bt709','undef','reserved', 'bt470m', 'bt470bg', 'smpte170m','smpte240m', 'linear', 'log100', 'log316', 'iec61966-2-4', 'bt1361e', 'iec61966-2-1','bt2020-10','bt2020-12', 'smpte-st-2084', 'smpte-st-428', 'arib-std-b67']
+mtx_list = ['GBR','bt709','undef','reserved','fcc','bt470bg','smpte170m','smpte240m','YCgCo','bt2020nc','bt2020c']
+vid_fmt_list = ['component','pal','ntsc','secam','mac','unspec']
+range_list = ['tv','full']
+
+### set values from cmd to variables ###
+maxcll = args.maxcll                             #MaxCLL parameter to be written into SEI
+maxfall = args.maxfall                     #MaxFALL parameter to be written into SEI
+primaries = prim_list.index(args.colorprim)                            #Primaries to be put into VUI section. Default = 9 (bt2020)
+trc = trc_list.index(args.transfer)                                 #Transfer function describing curve. Default = 16 (SMPTE ST2084 curve)
+matrix = mtx_list.index(args.colormatrix)                               #Color matrix. Default = 9 (bt2020nc)
+chroma_bit = args.chromaloc                           #Chroma bit location = 2 (as required by UHD BD specs)
+video_fmt = vid_fmt_list.index(args.videoformat)                            #Video format (COMPONENT,PAL, NTSC, e.t.c.) Default = 5 (Unspecified)
+full_range = range_list.index(args.full_range)
 chunk = 8388608
 progr = 0
 ### END OF PUT SETTINGS SECTION ###
@@ -102,7 +118,7 @@ class vui_parameters(object):
         if self.video_signal_type_present_flag == 0 :
             self.video_signal_type_present_flag = 1 
             self.video_format = video_fmt
-            self.video_full_range_flag = 0
+            self.video_full_range_flag = full_range
             self.colour_description_present_flag = 1
             self.colour_primaries = primaries
             self.transfer_characteristics = trc
@@ -220,13 +236,6 @@ def main():
     """
     """
 
-    if not args.infile :
-        print ('Warning! No INPUT file specified in CMD!\nUsing INFILE name',infile,'from this script code\n')
-        args.infile = infile
-    if not args.outfile :
-        print ('Warning! No OUTPUT file specified in CMD!\nUsing OUTFILE name',outfile,'from this script code\n')
-        args.outfile = outfile
-    
     if args.infile == args.outfile :
         print ('Error! Source and Destination can not be the same file!')
         sys.exit()
@@ -278,7 +287,7 @@ def main():
     sei_last_payload_size_byte = sei_string.read('uint:8')
     print ('sei_last_payload_size_byte',sei_last_payload_size_byte)
     sei_max_content_light_level = sei_string.read('uint:16')
-    sei_max_max_content_light_level = maxcll
+    sei_max_content_light_level = maxcll
     sei_max_pic_average_light_level = sei_string.read('uint:16')
     print ('sei_max_content_light_level set to',sei_max_content_light_level)
     sei_max_pic_average_light_level = maxfall
