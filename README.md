@@ -16,4 +16,7 @@ How to use:
 
 NOTE: This may not work well with HEVC streams made by x265 (x265 lib) as it creates a lot of repeating NALS and SEIs.
 
-TO BE CONTINUED
+TO DO:
+ - implement both internal settings and CMD line args settings in single script.
+ - try to make addition of SEI with Mastering Display Data (D.2.27 Mastering display colour volume SEI message syntax) as Mastering Display params are often specified when encoding HDR10 files with x265.
+ - research and decide if Knee Function SEI needed. If needed - make. (ref. D.2.31 Knee function information SEI message syntax)
