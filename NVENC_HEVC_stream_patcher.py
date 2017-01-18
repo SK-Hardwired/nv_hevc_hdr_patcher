@@ -3,9 +3,17 @@ import os
 import re
 from bitstring import BitArray, BitStream, pack, Bits
 
+import argparse
+
+
+parser = argparse.ArgumentParser(description='Creates new HEVC raw stream with HDR10 metadata.',)
+parser.add_argument('infile',help='First file or filepath should be the source',nargs='?')
+parser.add_argument('outfile',help='Second file or filepath should be the destination file',nargs='?')
+args = parser.parse_args()
+
 ### PUT YOUR SETTINGS HERE ###
-infile = '2017-01-05 04-05-17_out.h265' #path to your infile here (should be raw .h265 stream)
-outfile = 'processed.h265'              #path to your outfile here
+infile = 'brat2_h265.h265'              # if not given in CMD! Path to your infile here (should be raw .h265 stream)
+outfile = 'processed.h265'              # if not given in CMD! Path to your outfile here
 maxcll = 1000                           #MaxCLL parameter to be written into SEI
 maxfall = 300                           #MaxFALL parameter to be written into SEI
 primaries = 9                           #Primaries to be put into VUI section. Default = 9 (bt2020)
@@ -13,8 +21,10 @@ trc = 16                                #Transfer function describing curve. Def
 matrix = 9                              #Color matrix. Default = 9 (bt2020nc)
 chroma_bit = 2                          #Chroma bit location = 2 (as required by UHD BD specs)
 video_fmt = 5                           #Video format (COMPONENT,PAL, NTSC, e.t.c.) Default = 5 (Unspecified)
-chunk = 67108864
+chunk = 8388608
 progr = 0
+### END OF PUT SETTINGS SECTION ###
+
 
 class profile_tier_level(object):
     def __init__(self, t, maxNumSubLayersMinus1):
@@ -210,8 +220,24 @@ def main():
     """
     """
 
+    if not args.infile :
+        print ('Warning! No INPUT file specified in CMD!\nUsing INFILE name',infile,'from this script code\n')
+        args.infile = infile
+    if not args.outfile :
+        print ('Warning! No OUTPUT file specified in CMD!\nUsing OUTFILE name',outfile,'from this script code\n')
+        args.outfile = outfile
     
-    F = open(infile,'r+b')
+    if args.infile == args.outfile :
+        print ('Error! Source and Destination can not be the same file!')
+        sys.exit()
+
+    if not os.path.exists(args.infile) :
+        print ('Error! Given input file name not found! Please check path given in CMD or set in script code!')
+        sys.exit()
+
+    
+    F = open (args.infile,'r+b')
+    o = open (args.outfile,'wb')
 
     print ('Parsing the infile:')
     print ('')
@@ -607,14 +633,14 @@ def main():
     if not sei_pref_nals :
         s.prepend (new_sei_string)
 
-    o = open (outfile,'wb')
+    
     s.tofile(o)
     progr = chunk
     while True:
         s = F.read(chunk)
         o.write(s)
-        if progr < os.path.getsize(infile):
-            print ('Progress ',int(round((progr/os.path.getsize(infile))*100)),'%')
+        if progr < os.path.getsize(args.infile):
+            print ('Progress ',int(round((progr/os.path.getsize(args.infile))*100)),'%')
         progr = progr + chunk
         if not s:
             break
@@ -624,7 +650,7 @@ def main():
     print ('=====================')
     print ('Done!')
     print ('')
-    print ('File ',outfile,' created. SEI and VUI data added.')
+    print ('File ',args.outfile,' created. SEI and VUI data added.')
 
 if __name__ == "__main__":
     main()
