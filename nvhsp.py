@@ -639,8 +639,8 @@ def main():
     nal_t_rep = nal_t[24:]
     repl = s.replace (nal_t_rep,new_bs, bytealigned=True)
 
-    if not sei_pref_nals :
-        s.prepend (new_sei_string)
+#    if not sei_pref_nals :
+    s.prepend (new_sei_string)
 
     
     s.tofile(o)
