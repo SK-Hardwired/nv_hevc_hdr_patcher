@@ -1,21 +1,27 @@
-# nv_hevc_hdr_patcher
-Tiny python script adding/altering basic HDR metadata (SEI and SPS VUI) to raw HEVC streams from NVENC encoder
+# NVENC HEVC Stream Patcher. Add missing HDR metadata (VUI and SEI)
+Tiny python script and binary (Win) adding/altering basic HDR metadata (SEI and SPS VUI) to raw HEVC streams from NVENC encoder
 
-Written on python 3.6
+Written on python 3.5-3.6
 
-Prerequisities (for now)
-  - python 3.6 installed
-  - bitstring module installed
-  - manual filenames and parameters setting in script
+Prerequisities (for now):
+  - VC 2015 redist to run binary
   
 How to use:
-  - First you need raw HEVC (H265) stream file created with NVENC encoder (Rigaya's NVencC or ffmpeg's hevc_nvenc). if you have already muxed you video to mp4,mkv, unmux and extract raw h.265 stream (for example with "FFMPEG -i infile.mp4 -c:v copy -an outfile.h265"
-  - Open script in IDLE and set parameters, infile and outfile. Press F5 to launch.
-      - Alternatively, this script can be used from CMD by giving INFILE and OUTFILE as arguments. Color settings params still to be specified in script code  
-  - That's all!
+  - First you need raw HEVC (H265) stream file created with NVENC encoder (Rigaya's NVencC or ffmpeg's hevc_nvenc). if you have already muxed you video to mp4,mkv, unmux and extract raw h.265 stream (for example with "FFMPEG -i infile.mp4 -c:v copy -an outfile.h265"). That will prepare source file.
+  - launch cmd in folder and type "nvhsp.exe infile [-params] outfile"
+    - you may also type "nvhsp.exe -h" to get help on params and values
+    - param names and values are same as in x265
+  - Hit "Enter"
+  - That's all! nvhsp creates new raw HEVC stream with applied metadata flags and values.
   - Mux the outfile .h265 stream to MP4 or MKV with FFMPEG or whatever
+  
+Script usage:
+  - you may also use the py script (for geeks)
+  - prerequisities for this
+    - python 3.5-3.6 installed (checked only on these) 
+    - bitstring module installed (pip install bitstring)
 
-NOTE: This may not work well with HEVC streams made by x265 (x265 lib) as it creates a lot of repeating NALS and SEIs.
+NOTE: This may not work well with HEVC streams made by x265 (x265 lib) with *REPEATING* NAL and SEI units! Output stream most probably could be corrupted!
 
 TO DO:
  - try to make addition of SEI with Mastering Display Data (D.2.27 Mastering display colour volume SEI message syntax) as Mastering Display params are often specified when encoding HDR10 files with x265.
