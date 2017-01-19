@@ -1,5 +1,6 @@
 # NVENC HEVC Stream Patcher. Add missing HDR metadata (VUI and SEI)
-Tiny python script and binary (Win) adding/altering basic HDR metadata (SEI and SPS VUI) to raw HEVC streams from NVENC encoder
+Tiny python script and binary (Win) adding/altering basic HDR metadata (SEI and SPS VUI) to raw HEVC streams from NVENC encoder.
+This app not re-encode video! So works very fast.
 
 Written on python 3.5-3.6
 
