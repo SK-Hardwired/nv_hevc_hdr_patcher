@@ -17,7 +17,8 @@ parser.add_argument('-chromaloc',help='Chroma bit sample location. Default: 2',c
 parser.add_argument('-maxcll',help='MaxCLL in nits. Default: 1000',type=int,default=1000)
 parser.add_argument('-maxfall',help='MaxFall in nits. Default: 300',type=int,default=300)
 parser.add_argument('-videoformat',help='Optional: specify the videoformat. Default: unspecified',choices=['component','pal','ntsc','secam','mac','unspec'],default='unspec')
-parser.add_argument('-full_range',help='Full or TV range. Default: tv',choices=['tv','full'],default='tv')                    
+parser.add_argument('-full_range',help='Full or TV range. Default: tv',choices=['tv','full'],default='tv')
+parser.add_argument('-masterdisplay',type=str,help='Mastering display data. For example: "G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)" Default: None')
 args = parser.parse_args()
 
 
@@ -37,6 +38,8 @@ matrix = mtx_list.index(args.colormatrix)                               #Color m
 chroma_bit = args.chromaloc                           #Chroma bit location = 2 (as required by UHD BD specs)
 video_fmt = vid_fmt_list.index(args.videoformat)                            #Video format (COMPONENT,PAL, NTSC, e.t.c.) Default = 5 (Unspecified)
 full_range = range_list.index(args.full_range)
+md_arg_str = args.masterdisplay
+
 chunk = 8388608
 progr = 0
 ### END OF PUT SETTINGS SECTION ###
@@ -243,7 +246,13 @@ def main():
     if not os.path.exists(args.infile) :
         print ('Error! Given input file name not found! Please check path given in CMD or set in script code!')
         sys.exit()
-
+    if md_arg_str :
+        md = re.findall('\d+',md_arg_str)
+        if int(md[9]) == 1 :
+            md[9] = 2
+        if len(md) != 10 :
+            print ('Specified wrong "-masterdisplay" parameter! Please check!\n Example: G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1) or do not specify')
+            sys.exit()
     
     F = open (args.infile,'r+b')
     o = open (args.outfile,'wb')
@@ -264,38 +273,41 @@ def main():
     sps_size = size[nals.index(sps_nals[0])]
     if sei_pref_nals :
         sei_pref_nal_size = ( size[nals.index(sei_pref_nals[0])])
-
+### MAXCLL & MAXFALL ###
     sei_string = BitStream('0x000000014e01900403e8000080')
-    sei_string_short = sei_string[32:]
+#   sei_string_short = sei_string[32:]
     sei_string.pos = sei_string.pos + 32
-    sei_string.replace ('0x0000001','0x00')
-    
-    
-    sei_forbidden_zero_bit  = sei_string.read('uint:1')
-    sei_nal_unit_type = sei_string.read('uint:6')
-    sei_nuh_layer_id = sei_string.read('uint:6')
-    sei_nuh_temporal_id_plus1 = sei_string.read('uint:3')
 
-    print ('sei_forbidden_zero_bit',sei_forbidden_zero_bit)
-    print ('sei_nal_unit_type',sei_nal_unit_type)
-    print ('sei_nuh_layer_id',sei_nuh_layer_id)
-    print ('sei_nuh_temporal_id_plus1',sei_nuh_temporal_id_plus1)
-    sei_string.tobytes()
-    sei_string.replace ('0x000003','0x0000')
-    sei_last_payload_type_byte = sei_string.read('uint:8')
-    print ('sei_last_payload_type_byte',sei_last_payload_type_byte)
-    sei_last_payload_size_byte = sei_string.read('uint:8')
-    print ('sei_last_payload_size_byte',sei_last_payload_size_byte)
-    sei_max_content_light_level = sei_string.read('uint:16')
+    
+    sei_forbidden_zero_bit  = 0
+    sei_nal_unit_type = 39
+    sei_nuh_layer_id = 0
+    sei_nuh_temporal_id_plus1 = 1
+    sei_last_payload_type_byte = 144
+    sei_last_payload_size_byte = 4
     sei_max_content_light_level = maxcll
-    sei_max_pic_average_light_level = sei_string.read('uint:16')
-    print ('sei_max_content_light_level set to',sei_max_content_light_level)
     sei_max_pic_average_light_level = maxfall
-    print ('sei_max_pic_average_light_level set to ',sei_max_pic_average_light_level)
     new_sei_string = pack ('uint:1,2*uint:6,uint:3,2*uint:8,2*uint:16',sei_forbidden_zero_bit,sei_nal_unit_type,sei_nuh_layer_id,sei_nuh_temporal_id_plus1,sei_last_payload_type_byte,sei_last_payload_size_byte,sei_max_content_light_level,sei_max_pic_average_light_level)
-    new_sei_string = '0x00000001' + new_sei_string
-    print ('Done! \n')
+###
+    if md_arg_str:
+       md_sei_last_payload_type_byte = 137
+       md_sei_last_payload_size_byte = 24
+       #MD string ref
+       #G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
+       new_sei_string += pack ('2*uint:8',md_sei_last_payload_type_byte,md_sei_last_payload_size_byte)
+       for i in range (len(md)-2) :
+           new_sei_string += pack ('uint:16',int(md[i]))
 
+       new_sei_string += pack ('uint:32',int(md[8]))
+       new_sei_string += pack ('uint:32',int(md[9]))
+            
+
+    new_sei_string = '0x00000001' + new_sei_string + '0x00'
+
+    print ('SEI Prepending Done! \n')
+
+### ------------------ ###   
+    
     print ('Looking for SPS.........', sps_pos)
     print ('SPS_Nals_addresses', sps_pos)
     print ('SPS NAL Size', sps_size)
@@ -425,7 +437,7 @@ def main():
     
     
 # print block
-
+    """
     print ('sps_video_parameter_set_id', sps_video_parameter_set_id)
     print ('sps_max_sub_layers_minus1', sps_max_sub_layers_minus1)
     print ('sps_temporal_id_nesting_flag', sps_temporal_id_nesting_flag)
@@ -471,7 +483,7 @@ def main():
     if vui_parameters_present_flag :
         vp.show()
     print ('sps_extension_present_flag',sps_extension_present_flag)
-
+    """
 # New BS write Block
 
     new_bs = BitStream()
@@ -635,13 +647,12 @@ def main():
     
     pre_new_bs = pack ('uint:1,2*uint:6,uint:3', forbidden_zero_bit,nal_unit_type,nuh_layer_id,nuh_temporal_id_plus1)
     new_bs.replace ('0x0000','0x000003',bytealigned=True)
-    new_bs = pre_new_bs + new_bs
+    new_bs = pre_new_bs + new_bs + '0x00'
     nal_t_rep = nal_t[24:]
     repl = s.replace (nal_t_rep,new_bs, bytealigned=True)
 
 #    if not sei_pref_nals :
     s.prepend (new_sei_string)
-
     
     s.tofile(o)
     progr = chunk
@@ -660,6 +671,6 @@ def main():
     print ('Done!')
     print ('')
     print ('File ',args.outfile,' created. SEI and VUI data added.')
-
+    sys.exit()
 if __name__ == "__main__":
     main()
