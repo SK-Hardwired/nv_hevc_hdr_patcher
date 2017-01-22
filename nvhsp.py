@@ -10,12 +10,11 @@ import argparse
 parser = argparse.ArgumentParser(description='Creates new HEVC raw stream with HDR10 metadata.',)
 parser.add_argument('infile',help='First file or filepath should be the source')
 parser.add_argument('outfile',help='Second file or filepath should be the destination file')
-parser.add_argument('-colorprim',help='Color primaries. Default: bt2020',choices=['undef', 'bt709', 'bt470m', 'bt470bg', 'smpte170m','smpte240m', 'film', 'bt2020','smpte-st-428'], default='bt2020')
-parser.add_argument('-transfer',help='Transfer characteristics. Default: smpte-st-2084',choices=['undef','bt709', 'bt470m', 'bt470bg', 'smpte170m','smpte240m', 'linear', 'log100', 'log316', 'iec61966-2-4', 'bt1361e', 'iec61966-2-1','bt2020-10','bt2020-12', 'smpte-st-2084', 'smpte-st-428', 'arib-std-b67'],default='smpte-st-2084')
-parser.add_argument('-colormatrix',help='Color matrix. Default: bt2020nc',choices=['undef','bt709','fcc','bt470bg','smpte170m','smpte240m','GBR','YCgCo','bt2020nc','bt2020c'],default='bt2020nc')
-parser.add_argument('-chromaloc',help='Chroma bit sample location. Default: 2',choices= range(6),type=int,default=2)
-parser.add_argument('-maxcll',help='MaxCLL in nits. Default: 1000',type=int,default=1000)
-parser.add_argument('-maxfall',help='MaxFall in nits. Default: 300',type=int,default=300)
+parser.add_argument('-colorprim',help='Color primaries. Default: undef',choices=['undef', 'bt709', 'bt470m', 'bt470bg', 'smpte170m','smpte240m', 'film', 'bt2020','smpte-st-428'], default='undef')
+parser.add_argument('-transfer',help='Transfer characteristics. Default: umdef',choices=['undef','bt709', 'bt470m', 'bt470bg', 'smpte170m','smpte240m', 'linear', 'log100', 'log316', 'iec61966-2-4', 'bt1361e', 'iec61966-2-1','bt2020-10','bt2020-12', 'smpte-st-2084', 'smpte-st-428', 'arib-std-b67'],default='undef')
+parser.add_argument('-colormatrix',help='Color matrix. Default: bt2020nc',choices=['undef','bt709','fcc','bt470bg','smpte170m','smpte240m','GBR','YCgCo','bt2020nc','bt2020c'],default='undef')
+parser.add_argument('-chromaloc',help='Chroma bit sample location. Default: 0',choices= range(6),type=int,default=0)
+parser.add_argument('-maxcll',help='MaxCLL and MaxFall in nits. Syntax: "1000,300".',type=str)
 parser.add_argument('-videoformat',help='Optional: specify the videoformat. Default: unspecified',choices=['component','pal','ntsc','secam','mac','unspec'],default='unspec')
 parser.add_argument('-full_range',help='Full or TV range. Default: tv',choices=['tv','full'],default='tv')
 parser.add_argument('-masterdisplay',type=str,help='Mastering display data. For example: "G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)" Default: None')
@@ -31,7 +30,6 @@ range_list = ['tv','full']
 
 ### set values from cmd to variables ###
 maxcll = args.maxcll                             #MaxCLL parameter to be written into SEI
-maxfall = args.maxfall                     #MaxFALL parameter to be written into SEI
 primaries = prim_list.index(args.colorprim)                            #Primaries to be put into VUI section. Default = 9 (bt2020)
 trc = trc_list.index(args.transfer)                                 #Transfer function describing curve. Default = 16 (SMPTE ST2084 curve)
 matrix = mtx_list.index(args.colormatrix)                               #Color matrix. Default = 9 (bt2020nc)
@@ -39,6 +37,7 @@ chroma_bit = args.chromaloc                           #Chroma bit location = 2 (
 video_fmt = vid_fmt_list.index(args.videoformat)                            #Video format (COMPONENT,PAL, NTSC, e.t.c.) Default = 5 (Unspecified)
 full_range = range_list.index(args.full_range)
 md_arg_str = args.masterdisplay
+
 
 chunk = 8388608
 progr = 0
@@ -248,11 +247,13 @@ def main():
         sys.exit()
     if md_arg_str :
         md = re.findall('\d+',md_arg_str)
-        if int(md[9]) == 1 :
-            md[9] = 2
         if len(md) != 10 :
             print ('Specified wrong "-masterdisplay" parameter! Please check!\n Example: G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1) or do not specify')
             sys.exit()
+
+    if maxcll :
+        mcll = re.findall('\d+',maxcll)
+    sei_ok = 0 
     
     F = open (args.infile,'r+b')
     o = open (args.outfile,'wb')
@@ -274,43 +275,49 @@ def main():
     if sei_pref_nals :
         sei_pref_nal_size = ( size[nals.index(sei_pref_nals[0])])
 ### MAXCLL & MAXFALL ###
-    sei_string = BitStream('0x000000014e01900403e8000080')
-#   sei_string_short = sei_string[32:]
-    sei_string.pos = sei_string.pos + 32
 
-    
-    sei_forbidden_zero_bit  = 0
-    sei_nal_unit_type = 39
-    sei_nuh_layer_id = 0
-    sei_nuh_temporal_id_plus1 = 1
-    sei_last_payload_type_byte = 144
-    sei_last_payload_size_byte = 4
-    sei_max_content_light_level = maxcll
-    sei_max_pic_average_light_level = maxfall
-    new_sei_string = pack ('uint:1,2*uint:6,uint:3,2*uint:8,2*uint:16',sei_forbidden_zero_bit,sei_nal_unit_type,sei_nuh_layer_id,sei_nuh_temporal_id_plus1,sei_last_payload_type_byte,sei_last_payload_size_byte,sei_max_content_light_level,sei_max_pic_average_light_level)
-###
-    if md_arg_str:
-       md_sei_last_payload_type_byte = 137
-       md_sei_last_payload_size_byte = 24
-       #MD string ref
-       #G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
-       new_sei_string += pack ('2*uint:8',md_sei_last_payload_type_byte,md_sei_last_payload_size_byte)
-       for i in range (len(md)-2) :
-           new_sei_string += pack ('uint:16',int(md[i]))
+    if args.maxcll or md_arg_str :
+        sei_forbidden_zero_bit  = 0
+        sei_nal_unit_type = 39
+        sei_nuh_layer_id = 0
+        sei_nuh_temporal_id_plus1 = 1
+        new_sei_string = pack ('uint:1,2*uint:6,uint:3',sei_forbidden_zero_bit,sei_nal_unit_type,sei_nuh_layer_id,sei_nuh_temporal_id_plus1)
+        print ('Starting new SEI NALu...')
 
-       new_sei_string += pack ('uint:32',int(md[8]))
-       new_sei_string += pack ('uint:32',int(md[9]))
-            
+        if maxcll :
+            sei_last_payload_type_byte = 144
+            sei_last_payload_size_byte = 4
+            sei_max_content_light_level = int(mcll[0])
+            sei_max_pic_average_light_level = int(mcll[1])
+            new_sei_string += pack ('2*uint:8,2*uint:16',sei_last_payload_type_byte,sei_last_payload_size_byte,sei_max_content_light_level,sei_max_pic_average_light_level)
+            print ('SEI message with MaxCLL=',sei_max_content_light_level,' and MaxFall=',sei_max_pic_average_light_level,' created in SEI NAL')
 
-    new_sei_string = '0x00000001' + new_sei_string + '0x00'
+        if md_arg_str :
+            md_sei_last_payload_type_byte = 137
+            md_sei_last_payload_size_byte = 24
+            #MD string ref
+            #G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1)
+            new_sei_string += pack ('2*uint:8',md_sei_last_payload_type_byte,md_sei_last_payload_size_byte)
+            for i in range (len(md)-2) :
+                new_sei_string += pack ('uint:16',int(md[i]))
 
-    print ('SEI Prepending Done! \n')
+            new_sei_string += pack ('uint:32',int(md[8]))
+            new_sei_string += pack ('uint:32',int(md[9]))
+
+            new_sei_string.replace ('0x0000','0x000003',bytealigned=True)
+            print ('SEI message Mastering Display Data',md_arg_str,'created in SEI NAL')     
+
+        new_sei_string = '0x00000001' + new_sei_string + '0x00'
+        sei_ok = True
+
+
 
 ### ------------------ ###   
     
     print ('Looking for SPS.........', sps_pos)
     print ('SPS_Nals_addresses', sps_pos)
     print ('SPS NAL Size', sps_size)
+    print ('Starting reading SPS NAL contents')
 
     
     s.pos = sps_pos[0]
@@ -434,7 +441,7 @@ def main():
         sps_3d_extension_flag = t.read ('uint:1')
         sps_extension_5bits = t.read ('uint:1')
     tb = rbsp_trailing_bits(t,len(t))
-    
+    print ('Reading of SPS NAL finished. Read ',len(t),' of SPS NALu data.\n')
     
 # print block
     """
@@ -485,7 +492,7 @@ def main():
     print ('sps_extension_present_flag',sps_extension_present_flag)
     """
 # New BS write Block
-
+    print ('Making modified SPS NALu...')
     new_bs = BitStream()
     new_bs += pack('uint:4,uint:3,uint:1',sps_video_parameter_set_id,sps_max_sub_layers_minus1,sps_temporal_id_nesting_flag)
     new_bs += pack ('uint:2,uint:1,uint:5',ptl.general_profile_space, ptl.general_tier_flag,ptl.general_profile_idc)
@@ -650,27 +657,28 @@ def main():
     new_bs = pre_new_bs + new_bs + '0x00'
     nal_t_rep = nal_t[24:]
     repl = s.replace (nal_t_rep,new_bs, bytealigned=True)
-
-#    if not sei_pref_nals :
-    s.prepend (new_sei_string)
-    
+    print ('Made modified SPS NALu - OK')
+    if sei_ok :
+        s.prepend (new_sei_string)
+        print ('New SEI prepended')
+    print ('Writing new stream...')
     s.tofile(o)
     progr = chunk
     while True:
         s = F.read(chunk)
         o.write(s)
         if progr < os.path.getsize(args.infile):
-            print ('Progress ',int(round((progr/os.path.getsize(args.infile))*100)),'%')
+            print ('\rProgress ',int(round((progr/os.path.getsize(args.infile))*100)),'%',end='')
         progr = progr + chunk
         if not s:
             break
     o.close()
     F.close()
-    print ('Progress: 100 %')
+    print ('\rProgress: 100 %')
     print ('=====================')
     print ('Done!')
     print ('')
-    print ('File ',args.outfile,' created. SEI and VUI data added.')
+    print ('File ',args.outfile,' created.')
     sys.exit()
 if __name__ == "__main__":
     main()
