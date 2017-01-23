@@ -40,3 +40,5 @@ TO DO:
  - research and decide if Knee Function SEI needed. If needed - make. (ref. D.2.31 Knee function information SEI message syntax)
 
 **This script is based on figgis's h265 parser script  (https://gist.github.com/figgis/fd509a02d4b1aa89f6ef)**
+
+**CC0 License. I.e. you may use code or binaries as you like** 
