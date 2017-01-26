@@ -41,9 +41,9 @@ Script usage:
 NOTE: This may not work well with HEVC streams made by x265 (x265 lib) with *REPEATING* NAL and SEI units! Output stream most probably could be corrupted!
 
 ###History behind this app:
-In my work and research I need to create HDR10 compatible HEVC files. I used x265 codec for this to encode with HDR10 metadata. But encoding 4K HEVC videos is slow. So I hoped to speedup process using nVidia GTX10x0 GPUs with it's brilliant hardware HEVC (10,12 bit) encoding support. But reality (at this moment) is that no any encoder using NVENC support writing HDR10 metadata into HEVC stream. So you have nice HDR graded deep color video, but your TV or player have no idea that this is HDR video and you have **to turn on** HDR mode on TV or app **manually**. Not user friendly, right?
+In my work and research I need to create HDR10 compatible HEVC files. I used x265 codec for this to encode with HDR10 metadata. But encoding 4K HEVC videos is slow. So I hoped to speedup process using nVidia GTX10x0 GPUs with it's brilliant hardware HEVC 10 bit encoding support. But reality (at this moment) is that no any encoder using NVENC support writing HDR10 metadata into HEVC streams. So you have nice HDR graded deep color video encoded, but your TV or player have no idea that this is HDR video and you have **to turn on** HDR mode on TV or app **manually**. Not user friendly, right?
 As HDR10 metadata is stored in NON-VCL NAL units (i.e. not part of encoded picture data), it can be altered without touching the picture data in video stream. I.e. no need to re-encode video to put HDR signaling flags. 
-As result this app was created to help content creators make HDR videos quicker and easier. 
+As result this app was created to help content creators make HDR videos (for preview purposes, for example) quicker and easier. 
 
 **This script is based on figgis's h265 parser script  (https://gist.github.com/figgis/fd509a02d4b1aa89f6ef)**
 
